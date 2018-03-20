@@ -4,6 +4,10 @@ LED_RED=28
 LED_BLUE=38
 GPIO_PATH=/sys/class/gpio
 SCRIPT_DIR=`dirname "$(readlink -f "$0")"`
+ZIGBEE_SCRIPT=802.15.4_setup.sh
+ZIGBEE_FW_NAME=NONE
+ZIGBEE_FW_TYPE=1
+ZIGBEE_FW_VERSION=5.7.4 GA build 99 xNCP 0x8
 
 check_board()
 {
@@ -26,6 +30,13 @@ led_ctl()
 	echo $ctl > $GPIO_PATH/gpio$led/value
 }
 
+wait_zb_process()
+{
+	while [ "`ps | grep -v grep | grep $ZIGBEE_SCRIPT`" != "" ]; do
+		sleep 1
+	done
+}
+
 check_board
 led_ctl $LED_RED 0
 led_ctl $LED_BLUE 1
@@ -34,14 +45,21 @@ led_ctl $LED_BLUE 1
 
 CUR_DIR=$(pwd)
 cd $SCRIPT_DIR
-./802.15.4_setup.sh Artik530_EFR32MG1B232F256GM32_xncp-uart-rts-cts-use-with-serial-btl-5740-0003-0008.ebl "5.7.4 GA build 99 xNCP 0x8" 1 > /dev/null 2>&1
+wait_zb_process
+sh $ZIGBEE_SCRIPT $ZIGBEE_FW_NAME "$ZIGBEE_FW_VERSION" $ZIGBEE_FW_TYPE 1 > /dev/null 2>&1
 RET=$?
 cd $CUR_DIR
 
+if [ "$ZIGBEE_FW_TYPE" == "1" ]; then
+	ZIGBEE_FW_STR=zigbee
+else
+	ZIGBEE_FW_STR=thread
+fi
+
 if [ $RET == 0 ]; then
-	echo "The zigbee fw version is the latest"
+	echo "The current $ZIGBEE_FW_STR fw is the latest version"
 	exit 0
 else
-	echo "Invalid zigbee fw version"
+	echo "Invalid $ZIGBEE_FW_STR fw version"
 	exit 1
 fi
