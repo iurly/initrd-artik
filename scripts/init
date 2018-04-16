@@ -209,6 +209,11 @@ EOF
 	sync
 fi
 
+mount_modules() {
+	dev=$1
+	mount -t ${ROOTFSTYPE} $dev /lib/modules -o ro
+}
+
 ROOT_DISK=${ROOT%?}
 if [ "$OTA" == "true" ]; then
 	if [ $RESCUE -eq 0 ]; then
@@ -221,11 +226,9 @@ if [ "$OTA" == "true" ]; then
 	[ -d ${rootmnt}/boot ] || mkdir ${rootmnt}/boot
 	mount -n -o move /boot ${rootmnt}/boot
 
-	# Mount & move modules partition
-	mount -t ${ROOTFSTYPE} ${ROOT_DISK}${MODULES_PART} /lib/modules -o ro
+	mount_modules ${ROOT_DISK}${MODULES_PART}
 else
-	MODULES_PART=${ROOT_DISK}2
-	mount -t ${ROOTFSTYPE} ${MODULES_PART} /lib/modules -o ro
+	mount_modules ${ROOT_DISK}2
 fi
 
 [ -d ${rootmnt}/lib/modules ] || mkdir ${rootmnt}/lib/modules
