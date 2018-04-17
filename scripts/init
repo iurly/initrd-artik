@@ -211,6 +211,20 @@ fi
 
 mount_modules() {
 	dev=$1
+	verityinfo=/modules.img.verity
+
+	if [ -e $verityinfo ]; then
+		salt=`awk '/Salt/ {print $NF}' $verityinfo`
+		roothash=`awk '/Root hash/ {print $NF}' $verityinfo`
+		data_blocks=`awk '/Data blocks/ {print $NF}' $verityinfo`
+		data_block_size=`awk '/Data block size/ {print $NF}' $verityinfo`
+
+		dmsetup create modules --readonly --table "0 $(($data_blocks * $data_block_size / 512)) verity 1 $dev $dev $data_block_size $data_block_size $data_blocks $data_blocks sha256 $roothash $salt"
+
+		# override $dev
+		dev=/dev/mapper/modules
+	fi
+
 	mount -t ${ROOTFSTYPE} $dev /lib/modules -o ro
 }
 
