@@ -48,6 +48,12 @@ BUSYBOX=busybox-1_24_0
 BUSYBOX_CONFIG=`pwd`/configs/busybox_config
 E2FSPROGS=e2fsprogs-1.42.13
 PV=pv-1.6.0
+UTILLINUX=util-linux-2.27.1
+POPT=popt-1.16
+LIBGPGERROR=libgpg-error-1.21
+LIBGCRYPT=libgcrypt-1.6.5
+LVM2=lvm2-2.02.133
+
 LIBC_ESSENTIAL="libm.so.* libc.so.* libpthread.so.* librt.so.* ld-linux-armhf.so.*"
 TOOLCHAIN=gcc-linaro-4.9-2015.02-3-x86_64_arm-linux-gnueabihf.tar.xz
 TOOLCHAIN_NAME=`echo $TOOLCHAIN | sed 's/^/./' | rev | cut -d. -f3- | rev | cut -c2-`
@@ -85,7 +91,10 @@ mkdir ${E2FSPROGS}_install
 tar xf $SRCS/${E2FSPROGS}.tar.gz
 pushd ${E2FSPROGS}
 
-./configure --host=${TOOLCHAIN_PREFIX%?} --prefix=$BUILD_ROOT/${E2FSPROGS}_install --disable-backtrace --disable-debugfs --disable-imager --disable-defrag --disable-tls --disable-uuidd --disable-nls
+./configure --host=${TOOLCHAIN_PREFIX%?} \
+	--prefix=$BUILD_ROOT/${E2FSPROGS}_install --disable-backtrace \
+	--disable-debugfs --disable-imager --disable-defrag --disable-tls \
+	--disable-uuidd --disable-nls
 make -j${NCPUS}
 make install
 
@@ -99,6 +108,65 @@ pushd ${PV}
 LD=${TOOLCHAIN_PREFIX}ld make -j${NCPUS}
 LD=${TOOLCHAIN_PREFIX}ld make install
 
+popd
+
+# build lvm2 and its prerequisites
+mkdir temp-sysroot
+
+# util-linux
+tar xvf $SRCS/${UTILLINUX}.tar.xz
+pushd ${UTILLINUX}
+./configure --host=${TOOLCHAIN_PREFIX%?} \
+	--prefix=${BUILD_ROOT}/temp-sysroot/usr --enable-static \
+	--disable-all-programs --enable-libuuid --disable-bash-completion \
+	--without-python --without-libiconv-prefix \
+	--without-libintl-prefix --without-util --without-termcap \
+	--without-udev --without-ncurses --without-tinfo --without-capng \
+	--without-libz --without-user
+make -j${NCPUS}
+make install
+popd
+
+# libgpg-error
+tar xvf $SRCS/${LIBGPGERROR}.tar.bz2
+pushd ${LIBGPGERROR}
+./configure --host=${TOOLCHAIN_PREFIX%?} \
+	--prefix=${BUILD_ROOT}/temp-sysroot/usr --enable-static
+make -j${NCPUS}
+make install
+popd
+
+# popt
+tar xvf $SRCS/${POPT}.tar.gz
+pushd ${POPT}
+./configure --host=${TOOLCHAIN_PREFIX%?} \
+	--prefix=${BUILD_ROOT}/temp-sysroot/usr --enable-static
+make -j${NCPUS}
+make install
+popd
+
+# gcrypt
+tar xvf $SRCS/${LIBGCRYPT}.tar.bz2
+pushd ${LIBGCRYPT}
+./configure --host=${TOOLCHAIN_PREFIX%?} \
+	--prefix=${BUILD_ROOT}/temp-sysroot/usr \
+	--with-sysroot=${BUILD_ROOT}/temp-sysroot --enable-static \
+	--with-gpg-error-prefix=${BUILD_ROOT}/temp-sysroot/usr/
+make -j${NCPUS}
+make install
+popd
+
+# lvm2
+tar xvf $SRCS/${LVM2}.tar.xz
+pushd ${LVM2}
+ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes ./configure \
+	--host=${TOOLCHAIN_PREFIX%?} --prefix=${BUILD_ROOT}/temp-sysroot/usr \
+	--with-confdir=${BUILD_ROOT}/temp-sysroot/etc \
+	--with-default-system-dir=${BUILD_ROOT}/temp-sysroot/etc/lvm \
+	--disable-fsadm --disable-selinux --disable-dmeventd \
+	--disable-readline --enable-write_install
+make -j${NCPUS}
+make install
 popd
 
 ${TOOLCHAIN_PREFIX}gcc -o run-init $SRCS/run-init.c
@@ -125,6 +193,11 @@ pushd $TOOLCHAIN_ROOT/$TOOLCHAIN_NAME/*/libc/lib/
 cp -L $LIBC_ESSENTIAL $SYS_ROOT/lib
 ${TOOLCHAIN_PREFIX}strip $SYS_ROOT/lib/*
 popd
+
+cp -d ${BUILD_ROOT}/temp-sysroot/usr/lib/libdevmapper.* $SYS_ROOT/lib/
+${TOOLCHAIN_PREFIX}strip $SYS_ROOT/lib/libdevmapper.*
+cp -d ${BUILD_ROOT}/temp-sysroot/usr/sbin/dm* $SYS_ROOT/sbin/
+${TOOLCHAIN_PREFIX}strip $SYS_ROOT/sbin/dmsetup
 
 rm -rf build/*
 
