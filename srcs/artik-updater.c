@@ -27,7 +27,7 @@
 #define CMDLINE			"/proc/cmdline"
 #define PART_SIZE		(32 * 1024 * 1024)
 #define PATH_LEN		32
-#define VERSION			"v0.3"
+#define VERSION			"v1.0.5"
 #define HEADER_MAGIC		"ARTIK_OTA"
 
 enum boot_dev {
@@ -72,7 +72,7 @@ enum boot_part check_booting_part(void)
 		return -ENODEV;
 	}
 
-	while (fscanf(fp, "%s", cmdline) != EOF) {
+	while (fscanf(fp, "%255s", cmdline) != EOF) {
 		if (strncmp(cmdline, "bootfrom=2", 10) == 0) {
 			bootpart = PART0;
 			break;
@@ -100,7 +100,7 @@ enum boot_dev check_booting_dev(void)
 		return -ENODEV;
 	}
 
-	while (fscanf(fp, "%s", cmdline) != EOF) {
+	while (fscanf(fp, "%255s", cmdline) != EOF) {
 		if (strncmp(cmdline, "root=/dev/mmcblk0", 17) == 0) {
 			bootdev = EMMC;
 			break;
@@ -224,6 +224,8 @@ int update_boot_info(int fd, struct boot_info *boot, const char *tag)
 		part = &boot->part0;
 	else if (boot->part_num == PART1)
 		part = &boot->part1;
+	else
+		return -EINVAL;
 
 	part->state = BOOT_UPDATED;
 	part->retry = 1;
@@ -252,13 +254,16 @@ int check_booting_rescue(void)
 		return -ENODEV;
 	}
 
-	while (fscanf(fp, "%s", cmdline) != EOF) {
-		if (strncmp(cmdline, "rescue=0", 8) == 0)
+	while (fscanf(fp, "%255s", cmdline) != EOF) {
+		if (strncmp(cmdline, "rescue=0", 8) == 0) {
 			rescue = 0;
-		else if (strncmp(cmdline, "rescue=1", 8) == 0)
+			break;
+		} else if (strncmp(cmdline, "rescue=1", 8) == 0) {
 			rescue = 1;
-		else
+			break;
+		} else {
 			rescue = -EINVAL;
+		}
 	}
 	fclose(fp);
 
@@ -399,7 +404,7 @@ int main(int argc, char *argv[])
 		case 'i':
 			fd = read_boot_info(&current_boot);
 			if (fd < 0)
-				return ret;
+				return fd;
 			show_boot_info(&current_boot);
 			fsync(fd);
 			close(fd);
