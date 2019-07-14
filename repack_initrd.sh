@@ -42,7 +42,7 @@ fi
 find . | cpio -o -H newc | gzip > $OUTPUT_DIR/initrd.gz
 
 popd
-mkimage -A arm -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd -d initrd.gz uInitrd
+mkimage -A arm64 -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd -d initrd.gz uInitrd
 
 rm -rf $OUTPUT_DIR/sys_root
 
