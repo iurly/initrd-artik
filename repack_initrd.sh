@@ -25,6 +25,7 @@ parse_options()
 
 parse_options $@
 
+[ -d $OUTPUT_DIR ] || mkdir $OUTPUT_DIR
 [ -d $OUTPUT_DIR/sys_root ] || mkdir $OUTPUT_DIR/sys_root
 
 pushd $OUTPUT_DIR
