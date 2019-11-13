@@ -106,6 +106,9 @@ for x in $(cat /proc/cmdline); do
 	recovery)
 		recovery=y
 		;;
+	recovery_autoreboot)
+		recovery_autoreboot=y
+		;;
 	emergency_shell)
 		emergency_shell=y
 		;;
@@ -135,6 +138,13 @@ export BOOT
 if [ "$recovery" == "y" ]; then
 	echo "Do recovery"
 	/sbin/sd_recovery.sh
+	echo "Recovery complete!"
+	if [ "$recovery_autoreboot" == "y" ]; then
+		echo "An automatic reboot has been requested by setting recovery_autoreboot from u-boot command line"
+		exit 0
+	fi
+	echo "Now entering an interactive shell"
+	echo "For an automatic reboot here, next time please add 'recovery_autoreboot' from u-boot command line."
 	exec sh
 fi
 
